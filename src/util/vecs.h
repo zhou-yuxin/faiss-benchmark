@@ -201,7 +201,10 @@ public:
         if (is_gz) {
             suffix.resize(suffix.length() - 3);
         }
-        if (EndsWith(suffix, ".bvecs")) {
+        if (EndsWith(suffix, ".cvecs")) {
+            type = 'c';
+        }
+        else if (EndsWith(suffix, ".bvecs")) {
             type = 'b';
         }
         else if (EndsWith(suffix, ".ivecs")) {

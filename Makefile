@@ -1,5 +1,5 @@
-FAISS_DIR=/home/yuxin/faiss
-PCM_DIR=/home/yuxin/pcm
+FAISS_DIR=/home/intel/yuxin/faiss
+PCM_DIR=/home/intel/yuxin/pcm
 
 CXX=g++ -std=gnu++11 -O3 -Wall
 
@@ -30,7 +30,7 @@ INDEX_DEPS+=src/util/perfmon.h
 
 index: src/index.cpp $(INDEX_DEPS)
 	$(CXX) -o index src/index.cpp 						\
-	-I$(FAISS_DIR) -L$(FAISS_DIR)/build/faiss				\
+	-I$(FAISS_DIR) -L$(FAISS_DIR)						\
 	-I$(PCM_DIR)								\
 	-lz -lfaiss
 
@@ -49,6 +49,6 @@ BENCHMARK_DEPS+=src/util/statistics.h
 
 benchmark: src/benchmark.cpp $(BENCHMARK_DEPS)
 	$(CXX) -o benchmark src/benchmark.cpp					\
-	-I$(FAISS_DIR) -L$(FAISS_DIR)/build/faiss 				\
+	-I$(FAISS_DIR) -L$(FAISS_DIR) 						\
 	-I$(PCM_DIR) $(PCM_DIR)/libPCM.a					\
 	-lz -lpthread -lfaiss

@@ -83,6 +83,7 @@ void Build(const char* fpath, const char* key, faiss::MetricType metric,
         func_t func;
     }
     entries[] = {
+        {'c', Build<int8_t>},
         {'b', Build<uint8_t>},
         {'i', Build<int>},
         {'f', Build<float>},

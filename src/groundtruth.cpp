@@ -174,6 +174,8 @@ void Generate(const char* gt_fpath, const char* base_fpath,
         func_t func;
     }
     entries[] = {
+        {'c', 'f', 'i', Generate<int8_t, float, float, int32_t>},
+        {'c', 'c', 'i', Generate<int8_t, int8_t, int64_t, int32_t>},
         {'b', 'b', 'i', Generate<uint8_t, uint8_t, int64_t, int32_t>},
         {'b', 'i', 'i', Generate<uint8_t, int32_t, int64_t, int32_t>},
         {'b', 'f', 'i', Generate<uint8_t, float, float, int32_t>},
