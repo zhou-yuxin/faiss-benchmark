@@ -30,3 +30,15 @@
 *.exe
 *.out
 *.app
+
+subset
+index
+groundtruth
+benchmark
+*.idx
+*.fvecs
+*.bvecs
+*.ivecs
+*.log
+*.db
+report_ivfpq/config.pyc
