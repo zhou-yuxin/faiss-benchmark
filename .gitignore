@@ -31,6 +31,7 @@
 *.out
 *.app
 
+.vscode
 subset
 index
 groundtruth
@@ -41,4 +42,4 @@ benchmark
 *.ivecs
 *.log
 *.db
-report_ivfpq/config.pyc
+*.pyc
