@@ -1,6 +1,6 @@
 # Faiss测试套件
 
-这是一个[Faiss](https://github.com/facebookresearch/faiss)的测试套件，提供了四个通用工具（subset, index, groundtruth和benchmark）以及一个针对IVFPQ的测试脚本（report_ivfpq/run.py)。
+这是一个[Faiss](https://github.com/facebookresearch/faiss)的测试套件，提供了四个通用工具（subset, index, groundtruth和benchmark）以及一个针对组测试脚本（scripts/)。
 
 ## subset
 
@@ -97,6 +97,6 @@ cases是若干个测试用例。一次benchmark命令可以执行多个测试用
 
 另外，运行benchmark时，会访问MSR，这个需要首先`sudo modprobe msr`加载msr内核模块，然后以root权限运行benchmark。
 
-## report_ivfpq
+## 测试脚本
 
-该目录包含了一个针对IVFPQ的测试脚本，配置好参数之后，即可穷举所有的组合（聚类中心数/centroid、PQ维度/code、最近邻个数/top、探针数/nprobe、批处理大小/batch_size、线程数/thread_count），测试其qps、cpu利用率、内存读带宽、内存写带宽、内存占用大小、请求延迟统计和召回率统计。所有测试结果都存入sqlite数据库中，从而方便使用SQL进行数据分析。平时使用时，只需要修改config.py中的配置，然后执行`python run.py`即可。
+该目录包含了benchmark.py和config_env.py，config_env.py用于配置测试的方法，包括libfaiss.so所在目录、数据所在目录、测试线程数、批处理组大小、top-n等信息。benchmark.py利用config_env.py中的配置进行测试。此外还有report_ivfflat.py和report_ivfpq.py等专用于某种算法的测试脚本。换言之，benchmark.py和config_env.py实现了算法无关的测试框架，而不同的算法只需要使用不同的report_*.py来调用benchmark.py即可。这样的设计也非常有利于扩展。
