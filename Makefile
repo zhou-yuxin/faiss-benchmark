@@ -3,14 +3,17 @@ PCM_DIR=/home/yuxin/pcm
 
 CXX=g++ -std=gnu++11 -O3 -Wall
 
-all: subset index groundtruth benchmark
+all: randset subset index groundtruth benchmark
 
 clean:
-	rm subset index groundtruth benchmark
+	rm randset subset index groundtruth benchmark
 
-ifneq ($(shell lscpu | grep Atom), )
-    CXX+=-DDISABLE_PCM
-endif
+RANDSET_DEPS+=src/util/vecs.h
+RANDSET_DEPS+=src/util/random.h
+
+randset: src/randset.cpp $(RANDSET_DEPS)		
+	$(CXX) -o randset src/randset.cpp					\
+	-lz
 
 SUBSET_DEPS+=src/util/vecs.h
 SUBSET_DEPS+=src/util/random.h
