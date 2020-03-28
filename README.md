@@ -69,7 +69,7 @@
 
 ## benchmark
 
-以上三个工具都是辅助的，benchmark才是核心。使用方法为：
+以上4个工具都是辅助的，benchmark才是核心。使用方法为：
 ```
 ./benchmark <index> <query> <gt> <top_n> <percentages> <cases>
 ```
