@@ -16,6 +16,21 @@
 ./subset sift1M_base.fvecs sift500K.fvecs.gz 500000
 ```
 
+## randset
+
+该工具用来生成一个随机数据集。使用方法为：
+```
+./randset <dst> <dim> <n> <min> <max>
+```
+其中，dst是输出文件路径，dim是向量维度，n是向量的个数。min和max是向量每一个维度的取值范围。dst可以是bvecs、ivecs、fvecs以及它们的gz压缩包。randset会自动处理解压和压缩工作，以及数据类型转换工作。
+
+使用示例：
+```
+./randset rand10M.fvecs 128 10000000 -100.0 123.4
+```
+
+注意，经验而谈，算法运行在随机数据集（比如rand1M）的性能可以代表算法运行在有意义的数据集（比如sift1M）上的性能，但是召回率会比有意义的数据集差很多。因此，randset的适用场合是测试算法在不同规模数据集上的性能特性。其召回率一般不具有参考意义。
+
 ## index
 
 该工具专门处理index，包括两方面：
@@ -79,7 +94,7 @@ cases是若干个测试用例。一次benchmark命令可以执行多个测试用
 ```
 <parameters>/<batch_size>x<thread_count>[:<cpu_list>]
 ```
-其中parameters是一个用逗号分隔的参数列表（格式与faiss::ParameterSpace相同），用于配置index。比如"nprobe=64/1x8"的含义即为，把index的nprobe设置为64，然后使用8线程、batch大小为1的方式执行测试。case可以加上可选项cpu_list，表明各个线程绑定在那个核心上。而case之间使用分号分隔以构成cases。
+其中parameters是一个用逗号分隔的参数列表（格式与faiss::ParameterSpace相同），用于配置index。比如"nprobe=64/1x8"的含义即为，把index的nprobe设置为64，然后使用8线程、batch大小为1的方式执行测试。case可以加上可选项cpu_list，表明各个线程分别绑定在哪些核心上。而case之间使用分号分隔以构成cases。
 
 使用示例：
 ```
