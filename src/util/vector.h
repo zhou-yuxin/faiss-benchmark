@@ -57,17 +57,8 @@ class DistanceAlgo {
 public:
     virtual ~DistanceAlgo() {}
 
-    virtual TResult operator ()(const std::vector<TV1>& v1,
-            const std::vector<TV2>& v2) = 0;
-
-};
-
-template <typename TV1, typename TV2, typename TResult>
-class DistanceL1 : public DistanceAlgo<TV1, TV2, TResult> {
-
-public:
     TResult operator ()(const std::vector<TV1>& v1,
-            const std::vector<TV2>& v2) override {
+            const std::vector<TV2>& v2) {
         size_t dim = v1.size();
         if (v2.size() != dim) {
             char buf[256];
@@ -75,6 +66,20 @@ public:
                     "while <v2> has %lu dimensions!", dim, v2.size());
             throw std::runtime_error(buf);
         }
+        return core (v1.data(), v2.data(), dim);
+    }
+
+protected:
+    virtual TResult core(const TV1* v1, const TV2* v2, size_t dim) = 0;
+
+};
+
+template <typename TV1, typename TV2, typename TResult>
+class DistanceL1 : public DistanceAlgo<TV1, TV2, TResult> {
+
+protected:
+    virtual TResult core(const TV1* v1, const TV2* v2, size_t dim)
+            override {
         TResult sum = 0;
         for (size_t i = 0; i < dim; i++) {
             TResult delta = static_cast<TResult>(v1[i]) - 
@@ -89,16 +94,9 @@ public:
 template <typename TV1, typename TV2, typename TResult>
 class DistanceL2Sqr : public DistanceAlgo<TV1, TV2, TResult> {
 
-public:
-    TResult operator ()(const std::vector<TV1>& v1,
-            const std::vector<TV2>& v2) override {
-        size_t dim = v1.size();
-        if (v2.size() != dim) {
-            char buf[256];
-            sprintf(buf, "argument <v1> has %lu dimensions, "
-                    "while <v2> has %lu dimensions!", dim, v2.size());
-            throw std::runtime_error(buf);
-        }
+protected:
+    virtual TResult core(const TV1* v1, const TV2* v2, size_t dim)
+            override {
         TResult sum = 0;
         for (size_t i = 0; i < dim; i++) {
             TResult delta = static_cast<TResult>(v1[i]) - 
@@ -106,6 +104,22 @@ public:
             sum += delta * delta;
         }
         return sum;
+    }
+
+};
+
+template <typename TV1, typename TV2, typename TResult>
+class DistanceIP : public DistanceAlgo<TV1, TV2, TResult> {
+
+protected:
+    virtual TResult core(const TV1* v1, const TV2* v2, size_t dim)
+            override {
+        TResult sum = 0;
+        for (size_t i = 0; i < dim; i++) {
+            sum += static_cast<TResult>(v1[i]) * 
+                    static_cast<TResult>(v2[i]);
+        }
+        return -sum;
     }
 
 };

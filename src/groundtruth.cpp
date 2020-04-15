@@ -147,6 +147,9 @@ void Generate(util::vecs::File* gt_file,
     else if (strcmp(metric_type, "l2") == 0) {
         algo.reset(new util::vector::DistanceL2Sqr<TBase, TQuery, TDistance>);
     }
+    else if (strcmp(metric_type, "ip") == 0) {
+        algo.reset(new util::vector::DistanceIP<TBase, TQuery, TDistance>);
+    }
     else {
         throw std::runtime_error(std::string("unsupported metric type: '")
                 .append(metric_type).append("'!"));
@@ -203,7 +206,8 @@ int main(int argc, char** argv) {
                 "Calculate the groundtruth for vectors in <query>. "
                 "For each vector in <query>, find the <top_n> nearest vectors"
                 " from <base>. Output result to <gt>. Use <metric> to "
-                "calculate the distances, now 'l1' and 'l2' are supported. "
+                "calculate the distances, now 'l1', 'l2' and 'ip' "
+                "are supported. "
                 "Accelerate the process with <thread> threads. "
                 "The formats of <base> and <query> can be any combination "
                 "of .[b/i/f]vecs.(gz). While the format of <gt> should be "
