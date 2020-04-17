@@ -1,6 +1,6 @@
 # Faiss测试套件
 
-这是一个[Faiss](https://github.com/facebookresearch/faiss)的测试套件，提供了四个通用工具（subset, index, groundtruth和benchmark）以及一个针对组测试脚本（scripts/)。
+这是一个[Faiss](https://github.com/facebookresearch/faiss)的测试套件，提供了5个通用工具（subset, randset, index, groundtruth和benchmark）以及一个针对组测试脚本（scripts/)。
 
 ## subset
 
@@ -39,13 +39,13 @@
 
 当用于构建index时，使用方法为：
 ```
-./index build <fpath> <key> <parameters> <base> <train_ratio>
+./index build <fpath> <key> <metric> <parameters> <base> <train_ratio>
 ```
-其中fpath是构建后的index的存储路径，key为index的类型（比如"IVF1024,PQ64"，格式与faiss::index_factory()相同），parameters为需要传给index的参数（比如"verbose=1,nprobe=10"，格式与faiss::ParameterSpace相同），base是整个数据集的文件路径，train_ratio是一个0～1之间的小数，表示从base中抽取多少数据作为训练数据集。与subset一样，base可以是bvecs、ivecs、fvecss以及它们的gz压缩包，index会自动处理解压和压缩工作，以及数据类型转换工作。
+其中fpath是构建后的index的存储路径，key为index的类型（比如"IVF1024,PQ64"，格式与faiss::index_factory()相同），metric是距离类型，目前支持ip、l2和形如“raw:%d”的格式。parameters为需要传给index的参数（比如"verbose=1,nprobe=10"，格式与faiss::ParameterSpace相同），base是整个数据集的文件路径，train_ratio是一个0～1之间的小数，表示从base中抽取多少数据作为训练数据集。与subset一样，base可以是bvecs、ivecs、fvecss以及它们的gz压缩包，index会自动处理解压和压缩工作，以及数据类型转换工作。
 
 使用示例：
 ```
-./index build myindex.idx IVF1024,Flat verbose=0 sift1M_base.fvecs 0.1
+./index build myindex.idx IVF1024,Flat l2 verbose=0 sift1M_base.fvecs 0.1
 ```
 
 当用于估算index占用内存大小时，使用方法为：
