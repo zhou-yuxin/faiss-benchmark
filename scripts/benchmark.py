@@ -76,7 +76,7 @@ class Benchmark:
         index_fpath = "%s/%s.idx" % (env.data_dir, index_key)
         if not os.access(index_fpath, os.R_OK):
             base_fpath = "%s/%s" % (env.data_dir, env.base_fname)
-            cmd = "%s ../index build '%s' '%s' '%s' '%s' %f" %              \
+            cmd = "%s ../index build '%s' '%s' l2 '%s' '%s' %f" %           \
                     (env.cmd_prefix, index_fpath, index_key,                \
                     index_parameters, base_fpath, env.train_rato)
             return_code = os.system(cmd)
