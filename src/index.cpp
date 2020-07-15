@@ -10,7 +10,7 @@
 template <typename T>
 std::shared_ptr<faiss::Index> Build(const char* key, faiss::MetricType metric,
         const char* parameters, util::vecs::File* base_file,
-        float train_ratio) {
+        float train_ratio, size_t add_batch_size) {
     util::vecs::Formater<T> reader(base_file);
     size_t dim = reader.read().size();
     if (dim == 0) {
@@ -24,7 +24,7 @@ std::shared_ptr<faiss::Index> Build(const char* key, faiss::MetricType metric,
     size_t train_count = std::min<>(base_count,
             std::max<>(1UL, (size_t)(base_count * train_ratio)));
     float* train_vectors = new float[dim * train_count];
-    std::unique_ptr<float> train_vectors_deleter(train_vectors);
+    std::unique_ptr<float> vectors_deleter(train_vectors);
     size_t cursor = 0;
     util::random::Sequence<size_t> seq_rand(0, base_count, train_count);
     util::vector::Converter<T, float> converter;
@@ -45,7 +45,9 @@ std::shared_ptr<faiss::Index> Build(const char* key, faiss::MetricType metric,
             metric));
     faiss::ParameterSpace().set_index_parameters(index.get(), parameters);
     index->train(train_count, train_vectors);
-    train_vectors_deleter.reset();
+    float* add_batch = new float[dim * add_batch_size];
+    vectors_deleter.reset(add_batch);
+    size_t current_batch_size = 0;
     for (size_t i = 0; i < base_count; i++) {
         std::vector<T> vector = reader.read();
         if (vector.size() != dim) {
@@ -54,19 +56,28 @@ std::shared_ptr<faiss::Index> Build(const char* key, faiss::MetricType metric,
                     dim, vector.size());
             throw std::runtime_error(buf);
         }
-        index->add(1, converter(vector).data());
+        converter(add_batch + dim * current_batch_size, vector);
+        current_batch_size++;
+        if (current_batch_size == add_batch_size) {
+            index->add(add_batch_size, add_batch);
+            current_batch_size = 0;
+        }
+    }
+    if (current_batch_size) {
+        index->add(current_batch_size, add_batch);
     }
     return index;
 }
 
 void Build(const char* fpath, const char* key, faiss::MetricType metric,
-        const char* parameters, const char* base_fpath, float train_ratio) {
+        const char* parameters, const char* base_fpath, float train_ratio,
+        size_t add_batch_size) {
     if (access(fpath, F_OK) == 0) {
         throw std::runtime_error(std::string("file '").append(fpath)
                 .append("' already exists!"));
     }
     typedef std::shared_ptr<faiss::Index> (*func_t)(const char*,
-            faiss::MetricType, const char*, util::vecs::File*, float);
+            faiss::MetricType, const char*, util::vecs::File*, float, size_t);
     static const struct Entry {
         char type;
         func_t func;
@@ -82,7 +93,7 @@ void Build(const char* fpath, const char* key, faiss::MetricType metric,
         const Entry* entry = entries + i;
         if (base.getDataType() == entry->type) {
             index = entry->func(key, metric, parameters, base.getFile(),
-                    train_ratio);
+                    train_ratio, add_batch_size);
             faiss::write_index(index.get(), fpath);
             return;
         }
@@ -128,15 +139,17 @@ int main(int argc, char** argv) {
             return 0;
         }
         float train_ratio;
-        if (argc == 8 && strcmp(argv[1], "build") == 0 &&
-                sscanf(argv[7], "%f", &train_ratio) == 1) {
+        size_t add_batch_size;
+        if (argc == 9 && strcmp(argv[1], "build") == 0 &&
+                sscanf(argv[7], "%f", &train_ratio) == 1 &&
+                sscanf(argv[8], "%lu", &add_batch_size) == 1) {
             const char* fpath = argv[2];
             const char* key = argv[3];
             const char* metric = argv[4];
             const char* parameters = argv[5];
             const char* base_fpath = argv[6];
             Build(fpath, key, parse_metric_type(metric), parameters,
-                    base_fpath, train_ratio);
+                    base_fpath, train_ratio, add_batch_size);
             return 0;
         }
     }
@@ -148,7 +161,7 @@ int main(int argc, char** argv) {
             "Load index from <fpath>, and estimate the memory size it "
             "occupies, in MB.\n\n", argv[0]);
     fprintf(stderr, "%s build <fpath> <key> <metric> <parameters> <base> "
-            "<train_ratio>\n"
+            "<train_ratio> <add_batch_size>\n"
             "If <fpath> doesn't exist, build a new index of <key> "
             "(e.g. 'IVF8192,PQ64') in <metric> (e.g. 'ip', 'l2') "
             "with <parameters> (e.g. 'verbose=1'). <metric> supports 'ip'"
@@ -157,7 +170,8 @@ int main(int argc, char** argv) {
             "A subset of vectors are selected randomly from <base> to "
             "train the new index. The ratio to train is <train_ratio> "
             "(e.g. 0.1). Then vectors in <base> will be added to the new "
-            "index, and finally save it to <fpath>.\n",
+            "index, <add_batch_size> vectors per loop, "
+            "and finally save it to <fpath>.\n",
             argv[0]);
     return 1;
 }
