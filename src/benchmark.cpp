@@ -150,6 +150,16 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
     percentile_latency.add(latencies.get(), count);
     latencies.reset();
     Evaluate(count, top_n, groundtruths, labels.get(), percentile_rate);
+#ifdef PRINT_LABELS
+    faiss::Index::idx_t* plabel = labels.get (); 
+    for (size_t i = 0; i < count; i++) {
+        for (size_t j = 0; j < top_n; j++) {
+            std::cerr << *plabel << ",";
+            plabel++;
+        }
+        std::cerr << std::endl;
+    }
+#endif
 }
 
 template <typename T>
