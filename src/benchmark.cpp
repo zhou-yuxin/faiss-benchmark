@@ -63,6 +63,7 @@ void Evaluate(size_t count, size_t top_n,
 
 struct TestCase {
     std::string parameters;
+    size_t loop;
     size_t batch_size;
     std::vector<int> threads;
 };
@@ -94,6 +95,11 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
         float& qps, float& cpu_util, float& mem_r_bw, float& mem_w_bw,
         util::statistics::Percentile<uint32_t>& percentile_latency,
         util::statistics::Percentile<float>& percentile_rate) {
+    size_t loop = test_case.loop;
+    if (loop == 0) {
+        throw std::runtime_error ("<loop = 0> is invalid!");
+    }
+    size_t vcount = loop * count;
     size_t batch_size = test_case.batch_size;
     if (batch_size == 0) {
         throw std::runtime_error("<batch_size = 0> is invalid!");
@@ -103,7 +109,7 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
         throw std::runtime_error("<thread_count = 0> is invalid!");
     }
     size_t dim = index->d;
-    std::unique_ptr<uint32_t> latencies(NewZeroOutArray<uint32_t>(count));
+    std::unique_ptr<uint32_t> latencies(NewZeroOutArray<uint32_t>(vcount));
     std::unique_ptr<faiss::Index::idx_t> labels(
             NewZeroOutArray<faiss::Index::idx_t>(count * top_n));
     std::atomic<size_t> cursor(0);
@@ -121,19 +127,28 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
             std::unique_ptr<float> distances(
                     NewZeroOutArray<float>(batch_size * top_n));
             while (true) {
-                size_t offset = cursor.fetch_add(batch_size);
-                if (offset + batch_size > count) {
+                size_t voffset = cursor.fetch_add(batch_size);
+                if (voffset >= vcount) {
                     break;
                 }
-                const float* xs = queries + offset * dim;
+                size_t offset = voffset % count;
+                size_t nquery1 = std::min (batch_size, count - offset);
+                size_t nquery2 = batch_size - nquery1;
+                const float* queries1 = queries + offset * dim;
+                const float* queries2 = queries;
+                faiss::Index::idx_t* labels1 = labels.get() + offset * top_n;
+                faiss::Index::idx_t* labels2 = labels.get();
                 float* ds = distances.get();
-                faiss::Index::idx_t* ls = labels.get() + offset * top_n;
                 uint64_t start_us = util::perfmon::Clock::microsecond();
-                index->search(batch_size, xs, top_n, ds, ls);
+                index->search(nquery1, queries1, top_n, ds, labels1);
+                if (nquery2) {
+                    index->search(nquery2, queries2, top_n, ds, labels2);
+                }
                 uint64_t end_us = util::perfmon::Clock::microsecond();
                 uint64_t latency = end_us - start_us;
-                uint32_t* lats = latencies.get() + offset;
-                for (size_t i = 0; i < batch_size; i++) {
+                uint32_t* lats = latencies.get();
+                size_t lat_end = std::min(vcount, voffset + batch_size);
+                for (size_t i = voffset; i < lat_end; i++) {
                     lats[i] = (uint32_t)latency;
                 }
             }
@@ -145,9 +160,9 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
     uint64_t all_end_us = util::perfmon::Clock::microsecond();
     cpu_util = cpu_mon.end();
     mem_mon.end(mem_r_bw, mem_w_bw);
-    qps = 1000000.0f * count / (all_end_us - all_start_us);
     threads.clear();
-    percentile_latency.add(latencies.get(), count);
+    qps = 1000000.0f * vcount / (all_end_us - all_start_us);
+    percentile_latency.add(latencies.get(), vcount);
     latencies.reset();
     Evaluate(count, top_n, groundtruths, labels.get(), percentile_rate);
 #ifdef PRINT_LABELS
@@ -298,15 +313,16 @@ std::vector<TestCase> ParseTestCases(const char* joint_cases) {
     auto case_func = [&](const char* case_item, size_t case_len) -> int {
         std::string case_str(case_item, case_len);
         case_item = case_str.data();
-        size_t batch_size, thread_count;
+        size_t loop, batch_size, thread_count;
         const char* pos1 = strstr(case_item, "/");
-        if (!pos1 || sscanf(pos1, "/%lux%lu",
-                &batch_size, &thread_count) != 2) {
+        if (!pos1 || sscanf(pos1, "/%lux%lux%lu",
+                &loop, &batch_size, &thread_count) != 3) {
             throw std::runtime_error(std::string("unrecognizable case: '")
                     .append(case_item, case_len).append("'!"));
         }
         TestCase t;
         t.parameters.assign(case_item, pos1 - case_item);
+        t.loop = loop;
         t.batch_size = batch_size;
         const char* pos2 = strstr(pos1, ":");
         if (!pos2) {
@@ -387,8 +403,8 @@ int main(int argc, char** argv) {
                 "99.9-percentile of latency and recall rates will be "
                 "displayed. <cases> is a semicolon-split string of serval "
                 "benchmark cases, each is in format of "
-                "[parameters]/<batch_size>x<thread_count>[:<cpu-list>] "
-                "(e.g. 'nprobe=32/1x4' or 'nprobe=64/4x4:0,1,2,3')\n",
+                "[parameters]/<loop>x<batch_size>x<thread_count>[:<cpu-list>] "
+                "(e.g. 'nprobe=32/10x1x4' or 'nprobe=64/10x4x4:0,1,2,3')\n",
                 argv[0]);
         return 1;
     }

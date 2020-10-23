@@ -39,13 +39,13 @@
 
 当用于构建index时，使用方法为：
 ```
-./index build <fpath> <key> <metric> <parameters> <base> <train_ratio>
+./index build <fpath> <key> <metric> <parameters> <base> <train_ratio> <add_batch_size>
 ```
-其中fpath是构建后的index的存储路径，key为index的类型（比如"IVF1024,PQ64"，格式与faiss::index_factory()相同），metric是距离类型，目前支持ip、l2和形如“raw:%d”的格式。parameters为需要传给index的参数（比如"verbose=1,nprobe=10"，格式与faiss::ParameterSpace相同），base是整个数据集的文件路径，train_ratio是一个0～1之间的小数，表示从base中抽取多少数据作为训练数据集。与subset一样，base可以是bvecs、ivecs、fvecss以及它们的gz压缩包，index会自动处理解压和压缩工作，以及数据类型转换工作。
+其中fpath是构建后的index的存储路径，key为index的类型（比如"IVF1024,PQ64"，格式与faiss::index_factory()相同），metric是距离类型，目前支持ip、l2和形如“raw:%d”的格式。parameters为需要传给index的参数（比如"verbose=1,nprobe=10"，格式与faiss::ParameterSpace相同），base是整个数据集的文件路径，train_ratio是一个0～1之间的小数，表示从base中抽取多少数据作为训练数据集。add_batch_size是每次通过add()接口添加向量的条数，比如add_batch_size=1就是一条接一条顺序添加，一般而言，add_batch_size可以适当取大一些（比如1000），因为很多index类型对于批插入有并行加速。与subset一样，base可以是bvecs、ivecs、fvecss以及它们的gz压缩包，index会自动处理解压和压缩工作，以及数据类型转换工作。
 
 使用示例：
 ```
-./index build myindex.idx IVF1024,Flat l2 verbose=0 sift1M_base.fvecs 0.1
+./index build myindex.idx IVF1024,Flat l2 verbose=0 sift1M_base.fvecs 0.1 1000
 ```
 
 当用于估算index占用内存大小时，使用方法为：
@@ -92,13 +92,13 @@ percentages即用户指定的百分位数，如果用户传入"50,99,99.9"就会
 
 cases是若干个测试用例。一次benchmark命令可以执行多个测试用例，这样可以避免重复的准备工作（比如加载index、query和groundtruth），从而大幅提高效率。单个测试用例的的语法为：
 ```
-<parameters>/<batch_size>x<thread_count>[:<cpu_list>]
+<parameters>/<loop>x<batch_size>x<thread_count>[:<cpu_list>]
 ```
-其中parameters是一个用逗号分隔的参数列表（格式与faiss::ParameterSpace相同），用于配置index。比如"nprobe=64/1x8"的含义即为，把index的nprobe设置为64，然后使用8线程、batch大小为1的方式执行测试。case可以加上可选项cpu_list，表明各个线程分别绑定在哪些核心上。而case之间使用分号分隔以构成cases。
+其中parameters是一个用逗号分隔的参数列表（格式与faiss::ParameterSpace相同），用于配置index。比如"nprobe=64/1x1x8"的含义即为，把index的nprobe设置为64，然后使用8线程、batch大小为1的方式执行测试。“/”后面第一个参数loop表示用同一组查询数据集重复执行loop遍。比如"/10x1x4"就是使用4线程、bathc=1的方式，重复查询10遍。通常而言，第一遍查询可能会触发很多初始化工作，重复多遍则可以摊平这种影响。case可以加上可选项cpu_list，表明各个线程分别绑定在哪些核心上。而case之间使用分号分隔以构成cases。
 
 使用示例：
 ```
-./benchmark myidex.idx sift1M_query.fvecs sift1M_gt_1K.ivecs 100 50,99,99.9 'nprobe=64/1x4;nprobe=128/1x8;nprobe=32,verbose=1/8x2:0,1'
+./benchmark myidex.idx sift1M_query.fvecs sift1M_gt_1K.ivecs 100 50,99,99.9 'nprobe=64/5x1x4;nprobe=128/1x1x8;nprobe=32,verbose=1/10x8x2:0,1'
 ```
 注意，使用shell时，用于shell会把分号看作命令参数的分隔符，因此我们需要用引号将cases包起来，以避免shell的“过度解读”。
 
