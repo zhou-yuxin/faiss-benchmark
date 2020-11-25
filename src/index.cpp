@@ -102,14 +102,9 @@ void Build(const char* fpath, const char* key, faiss::MetricType metric,
 }
 
 void Size(const char* fpath) {
-    FILE* file = fopen(fpath, "r");
-    if (!file) {
-        throw std::runtime_error(std::string("file '").append(fpath)
-                .append("' doesn't exist!"));
-    }
     util::perfmon::MemorySize mem_mon;
     size_t start_size = mem_mon.getResidentSetSize();
-    faiss::Index* index = faiss::read_index(file);
+    faiss::Index* index = faiss::read_index(fpath);
     size_t end_size = mem_mon.getResidentSetSize();
     delete index;
     size_t index_size = (end_size - start_size) >> 10;

@@ -356,13 +356,7 @@ std::vector<TestCase> ParseTestCases(const char* joint_cases) {
 void Benchmark(const char* index_fpath, const char* query_fpath,
         const char* gt_fpath, size_t top_n, const char* joint_percentages,
         const char* joint_cases) {
-    FILE* file = fopen(index_fpath, "r");
-    if (!file) {
-        throw std::runtime_error(std::string("file '").append(index_fpath)
-                .append("' doesn't exist!"));
-    }
-    std::unique_ptr<faiss::Index> index(faiss::read_index(file));
-    fclose(file);
+    std::unique_ptr<faiss::Index> index(faiss::read_index(index_fpath));
     size_t dim = index->d;
     size_t count;
     std::shared_ptr<float> queries = PrepareQueries(query_fpath, dim, count);
