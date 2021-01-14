@@ -1,6 +1,6 @@
-#include <AutoTune.h>
-#include <index_io.h>
-#include <index_factory.h>
+#include <faiss/AutoTune.h>
+#include <faiss/index_io.h>
+#include <faiss/index_factory.h>
 
 #include "util/vecs.h"
 #include "util/random.h"

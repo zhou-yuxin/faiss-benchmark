@@ -6,8 +6,8 @@
 
 #include <pthread.h>
 
-#include <AutoTune.h>
-#include <index_io.h>
+#include <faiss/AutoTune.h>
+#include <faiss/index_io.h>
 
 #include "util/vecs.h"
 #include "util/string.h"

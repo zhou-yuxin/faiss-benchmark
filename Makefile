@@ -30,15 +30,15 @@ INDEX_DEPS+=src/util/perfmon.h
 
 index: src/index.cpp $(INDEX_DEPS)
 	$(CXX) -o index src/index.cpp 						\
-	-I$(FAISS_DIR) -L$(FAISS_DIR)						\
-	-I$(PCM_DIR)										\
+	-I$(FAISS_DIR) -L$(FAISS_DIR)/build/faiss				\
+	-I$(PCM_DIR)								\
 	-lz -lfaiss
 
 GROUNDTRUTH_DEPS+=src/util/vecs.h
 GROUNDTRUTH_DEPS+=src/util/vector.h
 
 groundtruth: src/groundtruth.cpp $(GROUNDTRUTH_DEPS)
-	$(CXX) -o groundtruth src/groundtruth.cpp 			\
+	$(CXX) -o groundtruth src/groundtruth.cpp 				\
 	-lz -lpthread
 
 BENCHMARK_DEPS+=src/util/vecs.h
@@ -48,7 +48,7 @@ BENCHMARK_DEPS+=src/util/perfmon.h
 BENCHMARK_DEPS+=src/util/statistics.h
 
 benchmark: src/benchmark.cpp $(BENCHMARK_DEPS)
-	$(CXX) -o benchmark src/benchmark.cpp 				\
-	-I$(FAISS_DIR) -L$(FAISS_DIR) 						\
+	$(CXX) -o benchmark src/benchmark.cpp					\
+	-I$(FAISS_DIR) -L$(FAISS_DIR)/build/faiss 				\
 	-I$(PCM_DIR) $(PCM_DIR)/libPCM.a					\
 	-lz -lpthread -lfaiss
