@@ -15,7 +15,7 @@
 #include "util/perfmon.h"
 #include "util/statistics.h"
 
-void Evaluate(size_t count, size_t top_n,
+void Evaluate(size_t count, size_t top_k1, size_t top_k2,
         const faiss::Index::idx_t* groundtruths,
         faiss::Index::idx_t* labels,
         util::statistics::Percentile<float>& percentile_rate) {
@@ -30,12 +30,11 @@ void Evaluate(size_t count, size_t top_n,
                 if (index >= count) {
                     break;
                 }
-                size_t offset = index * top_n;
-                const faiss::Index::idx_t* gs = groundtruths + offset;
-                faiss::Index::idx_t* ls = labels + offset;
-                std::sort(ls, ls + top_n);
+                const faiss::Index::idx_t* gs = groundtruths + index * top_k1;
+                faiss::Index::idx_t* ls = labels + index * top_k2;
+                std::sort(ls, ls + top_k2);
                 size_t ig = 0, il = 0, correct = 0;
-                while (ig < top_n && il < top_n) {
+                while (ig < top_k1 && il < top_k2) {
                     ssize_t diff = (ssize_t)gs[ig] - (ssize_t)ls[il];
                     if (diff < 0) {
                         ig++;
@@ -49,7 +48,7 @@ void Evaluate(size_t count, size_t top_n,
                         correct++;
                     }
                 }
-                float rate = (float)correct / top_n;
+                float rate = (float)correct / top_k1;
                 mutex.lock();
                 percentile_rate.add(rate);
                 mutex.unlock();
@@ -89,7 +88,7 @@ void SetCPU(int cpu) {
     }
 }
 
-void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
+void Benchmark(const faiss::Index* index, size_t count, size_t top_k1, size_t top_k2,
         const float* queries, const faiss::Index::idx_t* groundtruths,
         const TestCase& test_case,
         float& qps, float& cpu_util, float& mem_r_bw, float& mem_w_bw,
@@ -111,7 +110,7 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
     size_t dim = index->d;
     std::unique_ptr<uint32_t> latencies(NewZeroOutArray<uint32_t>(vcount));
     std::unique_ptr<faiss::Index::idx_t> labels(
-            NewZeroOutArray<faiss::Index::idx_t>(count * top_n));
+            NewZeroOutArray<faiss::Index::idx_t>(count * top_k2));
     std::atomic<size_t> cursor(0);
     std::vector<std::thread> threads;
     util::perfmon::CPUUtilization cpu_mon(true, true);
@@ -125,7 +124,7 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
         threads.emplace_back([&](int cpu) {
             SetCPU(cpu);
             std::unique_ptr<float> distances(
-                    NewZeroOutArray<float>(batch_size * top_n));
+                    NewZeroOutArray<float>(batch_size * top_k2));
             while (true) {
                 size_t voffset = cursor.fetch_add(batch_size);
                 if (voffset >= vcount) {
@@ -136,13 +135,13 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
                 size_t nquery2 = batch_size - nquery1;
                 const float* queries1 = queries + offset * dim;
                 const float* queries2 = queries;
-                faiss::Index::idx_t* labels1 = labels.get() + offset * top_n;
+                faiss::Index::idx_t* labels1 = labels.get() + offset * top_k2;
                 faiss::Index::idx_t* labels2 = labels.get();
                 float* ds = distances.get();
                 uint64_t start_us = util::perfmon::Clock::microsecond();
-                index->search(nquery1, queries1, top_n, ds, labels1);
+                index->search(nquery1, queries1, top_k2, ds, labels1);
                 if (nquery2) {
-                    index->search(nquery2, queries2, top_n, ds, labels2);
+                    index->search(nquery2, queries2, top_k2, ds, labels2);
                 }
                 uint64_t end_us = util::perfmon::Clock::microsecond();
                 uint64_t latency = end_us - start_us;
@@ -164,11 +163,11 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_n,
     qps = 1000000.0f * vcount / (all_end_us - all_start_us);
     percentile_latency.add(latencies.get(), vcount);
     latencies.reset();
-    Evaluate(count, top_n, groundtruths, labels.get(), percentile_rate);
+    Evaluate(count, top_k1, top_k2, groundtruths, labels.get(), percentile_rate);
 #ifdef PRINT_LABELS
     faiss::Index::idx_t* plabel = labels.get (); 
     for (size_t i = 0; i < count; i++) {
-        for (size_t j = 0; j < top_n; j++) {
+        for (size_t j = 0; j < top_k2; j++) {
             std::cerr << *plabel << ",";
             plabel++;
         }
@@ -354,14 +353,14 @@ std::vector<TestCase> ParseTestCases(const char* joint_cases) {
 }
 
 void Benchmark(const char* index_fpath, const char* query_fpath,
-        const char* gt_fpath, size_t top_n, const char* joint_percentages,
+        const char* gt_fpath, size_t top_k1, size_t top_k2, const char* joint_percentages,
         const char* joint_cases) {
     std::unique_ptr<faiss::Index> index(faiss::read_index(index_fpath));
     size_t dim = index->d;
     size_t count;
     std::shared_ptr<float> queries = PrepareQueries(query_fpath, dim, count);
     std::shared_ptr<faiss::Index::idx_t> gts = PrepareGroundTruths(count,
-            top_n, gt_fpath);
+            top_k1, gt_fpath);
     std::vector<Percentage> percentages = ParsePercentages(joint_percentages);
     std::vector<TestCase> test_cases = ParseTestCases(joint_cases);
     faiss::ParameterSpace ps;
@@ -370,7 +369,7 @@ void Benchmark(const char* index_fpath, const char* query_fpath,
         util::statistics::Percentile<uint32_t> latencies(true);
         util::statistics::Percentile<float> rates(false);
         ps.set_index_parameters(index.get(), iter->parameters.data());
-        Benchmark(index.get(), count, top_n, queries.get(), gts.get(),
+        Benchmark(index.get(), count, top_k1, top_k2, queries.get(), gts.get(),
                 *iter, qps, cpu_util, mem_r_bw, mem_w_bw, latencies, rates);
         OutputValue("qps", qps);
         OutputValue("cpu-util", cpu_util);
@@ -382,16 +381,16 @@ void Benchmark(const char* index_fpath, const char* query_fpath,
 }
 
 int main(int argc, char** argv) {
-    size_t top_n;
-    if (argc != 7 || sscanf(argv[4], "%lu", &top_n) != 1) {
-        fprintf(stderr, "%s <index> <query> <gt> <top_n> <percentages> "
+    size_t top_k1, top_k2;
+    if (argc != 7 || sscanf(argv[4], "%lu@%lu", &top_k1, &top_k2) != 2 || top_k1 > top_k2) {
+        fprintf(stderr, "%s <index> <query> <gt> <k1@k2> <percentages> "
                 "<cases>\n"
                 "Load index from <index> if it exists. Then run several "
                 "cases of benchmarks. The vectors to query are from <query>,"
-                " the groundtruth vectors are from <gt>. Find <top_n> nearest"
+                " the groundtruth vectors are from <gt>. Find <k2> nearest"
                 " neighbors for each query vector. The result is consist of "
-                "statistics of latency and recall rate. Besides the best, "
-                "worst and average, percentiles at <percentages> will be "
+                "statistics of latency and recall rate. The recall rate is k1@k2. "
+                "Besides the best, worst and average, percentiles at <percentages> will be "
                 "displayed additionally. For example, if <percentages> = '50,"
                 "99,99.9', then 50-percentile, 99-percentile and "
                 "99.9-percentile of latency and recall rates will be "
@@ -408,7 +407,7 @@ int main(int argc, char** argv) {
     const char* percentages = argv[5];
     const char* cases = argv[6];
     try {
-        Benchmark(index_fpath, query_fpath, gt_fpath, top_n, percentages,
+        Benchmark(index_fpath, query_fpath, gt_fpath, top_k1, top_k2, percentages,
                 cases);
     }
     catch (const std::exception& e) {
