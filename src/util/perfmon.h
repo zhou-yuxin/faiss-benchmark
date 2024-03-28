@@ -14,7 +14,9 @@
 
 #include <sys/time.h>
 
+#ifdef USE_PCM
 #include <cpucounters.h>
+#endif
 
 #define UTIL_PERFMON_CPUUTILIZATION_PATH    "/proc/self/stat"
 #define UTIL_PERFMON_MEMORYSIZE_PATH        "/proc/self/status"
@@ -165,6 +167,7 @@ private:
     }
 };
 
+#ifdef USE_PCM
 template <typename T>
 class PCMInstanceFakeTemplate {
 
@@ -287,6 +290,19 @@ private:
     }
 
 };
+#else
+class MemoryBandwidth {
+
+public:
+    void start() {}
+
+    void end(float& r_bw, float& w_bw) {
+        r_bw = NAN;
+        w_bw = NAN;
+    }
+
+};
+#endif
 
 }
 

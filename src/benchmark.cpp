@@ -16,8 +16,8 @@
 #include "util/statistics.h"
 
 void Evaluate(size_t count, size_t top_k1, size_t top_k2,
-        const faiss::Index::idx_t* groundtruths,
-        faiss::Index::idx_t* labels,
+        const faiss::idx_t* groundtruths,
+        faiss::idx_t* labels,
         util::statistics::Percentile<float>& percentile_rate) {
     size_t thread_count = std::thread::hardware_concurrency();
     std::vector<std::thread> threads;
@@ -30,8 +30,8 @@ void Evaluate(size_t count, size_t top_k1, size_t top_k2,
                 if (index >= count) {
                     break;
                 }
-                const faiss::Index::idx_t* gs = groundtruths + index * top_k1;
-                faiss::Index::idx_t* ls = labels + index * top_k2;
+                const faiss::idx_t* gs = groundtruths + index * top_k1;
+                faiss::idx_t* ls = labels + index * top_k2;
                 std::sort(ls, ls + top_k2);
                 size_t ig = 0, il = 0, correct = 0;
                 while (ig < top_k1 && il < top_k2) {
@@ -89,7 +89,7 @@ void SetCPU(int cpu) {
 }
 
 void Benchmark(const faiss::Index* index, size_t count, size_t top_k1, size_t top_k2,
-        const float* queries, const faiss::Index::idx_t* groundtruths,
+        const float* queries, const faiss::idx_t* groundtruths,
         const TestCase& test_case,
         float& qps, float& cpu_util, float& mem_r_bw, float& mem_w_bw,
         util::statistics::Percentile<uint32_t>& percentile_latency,
@@ -109,8 +109,8 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_k1, size_t to
     }
     size_t dim = index->d;
     std::unique_ptr<uint32_t> latencies(NewZeroOutArray<uint32_t>(vcount));
-    std::unique_ptr<faiss::Index::idx_t> labels(
-            NewZeroOutArray<faiss::Index::idx_t>(count * top_k2));
+    std::unique_ptr<faiss::idx_t> labels(
+            NewZeroOutArray<faiss::idx_t>(count * top_k2));
     std::atomic<size_t> cursor(0);
     std::vector<std::thread> threads;
     util::perfmon::CPUUtilization cpu_mon(true, true);
@@ -135,8 +135,8 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_k1, size_t to
                 size_t nquery2 = batch_size - nquery1;
                 const float* queries1 = queries + offset * dim;
                 const float* queries2 = queries;
-                faiss::Index::idx_t* labels1 = labels.get() + offset * top_k2;
-                faiss::Index::idx_t* labels2 = labels.get();
+                faiss::idx_t* labels1 = labels.get() + offset * top_k2;
+                faiss::idx_t* labels2 = labels.get();
                 float* ds = distances.get();
                 uint64_t start_us = util::perfmon::Clock::microsecond();
                 index->search(nquery1, queries1, top_k2, ds, labels1);
@@ -165,7 +165,7 @@ void Benchmark(const faiss::Index* index, size_t count, size_t top_k1, size_t to
     latencies.reset();
     Evaluate(count, top_k1, top_k2, groundtruths, labels.get(), percentile_rate);
 #ifdef PRINT_LABELS
-    faiss::Index::idx_t* plabel = labels.get (); 
+    faiss::idx_t* plabel = labels.get (); 
     for (size_t i = 0; i < count; i++) {
         for (size_t j = 0; j < top_k2; j++) {
             std::cerr << *plabel << ",";
@@ -225,12 +225,12 @@ std::shared_ptr<float> PrepareQueries(const char* fpath, size_t dim,
 }
 
 template <typename T>
-std::shared_ptr<faiss::Index::idx_t> PrepareGroundTruths(size_t count,
+std::shared_ptr<faiss::idx_t> PrepareGroundTruths(size_t count,
         size_t top_n, util::vecs::File* gt_file) {
-    faiss::Index::idx_t* cursor = new faiss::Index::idx_t[count * top_n];
-    std::shared_ptr<faiss::Index::idx_t> gts(cursor);
+    faiss::idx_t* cursor = new faiss::idx_t[count * top_n];
+    std::shared_ptr<faiss::idx_t> gts(cursor);
     util::vecs::Formater<T> reader(gt_file);
-    util::vector::Converter<T, faiss::Index::idx_t> converter;
+    util::vector::Converter<T, faiss::idx_t> converter;
     for (size_t i = 0; i < count; i++) {
         std::vector<T> gt = reader.read();
         if (gt.size() < top_n) {
@@ -246,10 +246,10 @@ std::shared_ptr<faiss::Index::idx_t> PrepareGroundTruths(size_t count,
     return gts;
 }
 
-std::shared_ptr<faiss::Index::idx_t> PrepareGroundTruths(size_t count,
+std::shared_ptr<faiss::idx_t> PrepareGroundTruths(size_t count,
         size_t top_n, const char* fpath) {
     util::vecs::SuffixWrapper gt(fpath, true);    
-    typedef std::shared_ptr<faiss::Index::idx_t> (*func_t)(size_t, size_t,
+    typedef std::shared_ptr<faiss::idx_t> (*func_t)(size_t, size_t,
             util::vecs::File*);
     static const struct Entry {
         char type;
@@ -359,7 +359,7 @@ void Benchmark(const char* index_fpath, const char* query_fpath,
     size_t dim = index->d;
     size_t count;
     std::shared_ptr<float> queries = PrepareQueries(query_fpath, dim, count);
-    std::shared_ptr<faiss::Index::idx_t> gts = PrepareGroundTruths(count,
+    std::shared_ptr<faiss::idx_t> gts = PrepareGroundTruths(count,
             top_k1, gt_fpath);
     std::vector<Percentage> percentages = ParsePercentages(joint_percentages);
     std::vector<TestCase> test_cases = ParseTestCases(joint_cases);
