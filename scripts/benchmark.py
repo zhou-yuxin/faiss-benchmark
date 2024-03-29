@@ -51,8 +51,7 @@ class Benchmark:
                     case_fieldss)
         index_fpath = "%s/%s(%s).idx" % (env.index_dir, index_key, index_parameters)
         tmp_fpath = "%s/%s.log" % (env.output_dir, os.getpid())
-        cmd = "%s ../index size %s > %s" % (env.cmd_prefix, index_fpath,    \
-                tmp_fpath)
+        cmd = f"{env.cmd_prefix} ../index size '{index_fpath}' > '{tmp_fpath}'"
         return_code = os.system(cmd)
         if return_code != 0:
             exit(return_code)
