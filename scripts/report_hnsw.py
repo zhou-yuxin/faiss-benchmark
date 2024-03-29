@@ -12,7 +12,7 @@ bench = benchmark.Benchmark(algo_field_names, algo_field_types,             \
 for M in hnsw.Ms:
     for efConstruction in hnsw.efConstructions:
         algo_fields = (M, efConstruction)
-        key = "HNSW%d-%d" % algo_fields
+        key = "HNSW%d" % M
         parameters = "efConstruction=%d" % efConstruction
         case_fields = []
         for efSearch in hnsw.efSearchs:

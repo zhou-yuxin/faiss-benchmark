@@ -8,11 +8,11 @@ class Benchmark:
             case_field_names, case_field_types):
         self.__algo_fields = algo_field_names
         self.__case_fields = case_field_names
-        fpath = "%s/%s" % (env.out_dir, env.db_fname)
+        fpath = f"{env.output_dir}/{env.db_fname}"
         conn = sqlite3.connect(fpath)
         cursor = conn.cursor()
         sql = "select count(*) from sqlite_master where type = 'table'"     \
-                "and name = '%s'" % env.db_table
+                f"and name = '{env.db_table}'"
         if not Benchmark.__does_exist(cursor, sql):
             user_fields = []
             assert(len(algo_field_names) == len(algo_field_types))
@@ -49,8 +49,8 @@ class Benchmark:
         for top in env.tops:
             self.__run(index_key, index_parameters, top, algo_fields,       \
                     case_fieldss)
-        index_fpath = "%s/%s.idx" % (env.data_dir, index_key)
-        tmp_fpath = "%s/%s.log" % (env.out_dir, os.getpid())
+        index_fpath = "%s/%s(%s).idx" % (env.index_dir, index_key, index_parameters)
+        tmp_fpath = "%s/%s.log" % (env.output_dir, os.getpid())
         cmd = "%s ../index size %s > %s" % (env.cmd_prefix, index_fpath,    \
                 tmp_fpath)
         return_code = os.system(cmd)
@@ -73,12 +73,14 @@ class Benchmark:
 
     def __run(self, index_key, index_parameters, top,                       \
             algo_fields, case_fieldss):
-        index_fpath = "%s/%s.idx" % (env.data_dir, index_key)
+        index_fpath = "%s/%s(%s).idx" % (env.index_dir, index_key, index_parameters)
         if not os.access(index_fpath, os.R_OK):
             base_fpath = "%s/%s" % (env.data_dir, env.base_fname)
-            cmd = "%s ../index build '%s' '%s' l2 '%s' '%s' %f" %           \
-                    (env.cmd_prefix, index_fpath, index_key,                \
-                    index_parameters, base_fpath, env.train_rato)
+            cmd = f"OMP_NUM_THREADS={env.build_omp_nthreads} {env.cmd_prefix} " \
+                    f"../index build '{index_fpath}' '{index_key}' "            \
+                    f"'{env.metric_type}' '{index_parameters}' '{base_fpath}' " \
+                    f"'{env.train_rato}' 1024"
+            print(cmd)
             return_code = os.system(cmd)
             if return_code != 0:
                 exit(return_code)
@@ -118,17 +120,18 @@ class Benchmark:
                     joint_parameters = ",".join(parameters)
                     cpus = env.cpus[0 : thread_count]
                     joint_cpus = ",".join(map(str, cpus))
-                    express = "%s/%dx%d:%s" % (joint_parameters,            \
-                            batch_size, thread_count, joint_cpus)
+                    express = f"{joint_parameters}/{env.loops}x{batch_size}"    \
+                            f"x{thread_count}:{joint_cpus}"
                     expresses.append(express)
         if len(cases) == 0:
             return
         joint_expresses = ";".join(expresses)
-        tmp_fpath = "%s/%s.log" % (env.out_dir, os.getpid())
-        cmd = "%s ../benchmark '%s' '%s' '%s' '%d' '%s' '%s' > %s" %        \
-                (env.cmd_prefix, index_fpath, query_fpath,                  \
-                groundtruth_fpath, top, joint_percentiles,                  \
-                joint_expresses, tmp_fpath)
+        tmp_fpath = f"{env.output_dir}/{os.getpid()}.log"
+        cmd = f"OMP_NUM_THREADS={env.bench_omp_nthreads} {env.cmd_prefix} "     \
+                f"../benchmark '{index_fpath}' '{query_fpath}' "                \
+                f"'{groundtruth_fpath}' {top}@{top} '{joint_percentiles}' "     \
+                f"'{joint_expresses}' > '{tmp_fpath}'"
+        print(cmd)
         return_code = os.system(cmd)
         if return_code != 0:
             exit(return_code)
